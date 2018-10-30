@@ -1,5 +1,5 @@
 #!/usr/bin/python
-"""inning setup script.
+"""netanalytics setup script.
 
 Author: Veronica Tozzo
 Copyright (c) 2018, Veronica Tozzo.
@@ -18,7 +18,7 @@ setup(
     author_email='veronica.tozzo@dibris.unige.it',
     maintainer='Veronica Tozzo',
     maintainer_email='veronica.tozzo@dibris.unige.it',
-    keywords=['nmtf', 'data integration'],
+    keywords=['graphs', 'analysis'],
     classifiers=[
         'Development Status :: 1 - Beta',
         'Environment :: Console',
@@ -41,7 +41,4 @@ setup(
               'scipy (>=0.16.1,>=1.0)',
               'sklearn (>=0.17)',
               'six'],
-    # scripts=['scripts/ici_run.py', 'scripts/ici_analysis.py'],
-    # ext_modules=[ssk_module],
-    # include_dirs=[np.get_include()]
 )

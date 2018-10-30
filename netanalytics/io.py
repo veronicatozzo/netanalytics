@@ -1,7 +1,10 @@
 import warnings
 import numpy as np
+import pandas as pd
 
 from scipy.sparse import coo_matrix
+
+from netanalytics.utils import _check_axis
 
 def _params_check(G, filename, labels, axis):
     n1, n2 = G.shape
@@ -17,10 +20,7 @@ def _params_check(G, filename, labels, axis):
         raise ValueError("The number of labels of the nodes must be the same "
                          "as the number of nodes. Found %d labels for %d "
                          "nodes" %(n, n1))
-    if axis<0 or axis>1:
-        warnings.warn("Found a value for axis different than 0 and 1. Setting"
-                       "default value 0.")
-        axis=0
+    axis = _check_axis(axis)
     return filename, axis
 
 
@@ -89,15 +89,16 @@ def to_edge_list(G, filename, labels=None, keep_loops=False,
     df.to_csv(filename)
 
 
-def from_edgelist(filename, sep=',', only_adjacency=True):
+def from_edge_list(filename, sep=',', only_adjacency=True):
     """
     From a tabular file reads the graph.
 
     parameters
     ----------
-    filename:
-
-    sep
+    filename: string,
+        The file from which the network is retrieved. It must be a tabular file.
+    sep: string, optional
+	The type of separator used in the file to read.
 
     only_adjacency: boolean, optional, default=True
         If False returns also the edge list as a list of indices.
@@ -112,8 +113,7 @@ def from_edgelist(filename, sep=',', only_adjacency=True):
         The list of edges as indices of the list of labels. Only if
         only_adjacency=False.
     """
-
-    data = pd.read_table(file,  sep=sep)
+    data = pd.read_table(filename,  sep=sep)
     nodes = data.iloc[:, 0].tolist() + data.iloc[:, 1].tolist()
     nodes_labels = sorted(list(set(nodes)))
     nodes = [(i,nodes_labels[i]) for i in range(len(nodes_labels))]
@@ -125,12 +125,12 @@ def from_edgelist(filename, sep=',', only_adjacency=True):
     if not only_adjacency:
         for _from, _to in zip(data.iloc[:,0], data.iloc[:,1]):
             edge_list.append([_from, _to])
-        return M, node_labels, edge_list
+        return M, nodes_labels, edge_list
     return M, nodes_labels
 
 
 def to_ORCA(nodes_list, edges_list, filename):
-    with open(filename, 'wb') as f:
+    with open(filename, 'w') as f:
         f.write(str(len(nodes_list)) + ' ' + str(len(edges_list)) + '\n')
-	    for e in edges_list:
-	           f.write(str(e[0]) + ' ' + str(e[1]) + '\n')
+        for e in edges_list:
+            f.write(str(e[0]) + ' ' + str(e[1]) + '\n')

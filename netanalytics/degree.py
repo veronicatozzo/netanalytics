@@ -3,6 +3,7 @@ import warnings
 import numpy as np
 from collections import Counter
 
+from netanalytics.utils import _normalize_degree_distribution
 
 def number_of_edges(A):
     """
@@ -82,3 +83,24 @@ def degree_distribution(A, axis=0):
     for i in range(A.shape[axis]):
         degrees[i] = node_degree(A, i, axis)[1]
     return degrees, Counter(degrees)
+
+
+
+
+
+def degree_distribition_distance(G1, G2):
+    _, d_G1 = degree_distribution(G1)
+    _, d_G2 = degree_distribution(G2)
+    degrees_G1 = list(d_G1.keys())
+    degrees_G2 = list(d_G2.keys())
+
+    degrees = np.array(sorted(list(set(degrees_G1).union(degrees_G2))))
+    count_G1 = [d_G1.get(d, 0) for d in degrees]
+    count_G2 = [d_G2.get(d, 0) for d in degrees]
+    N_G1 = _normalize_degree_distribution(degrees, np.array(count_G1))
+    N_G2 = _normalize_degree_distribution(degrees, np.array(count_G2))
+    distance = np.sqrt(np.sum(np.square(N_G1 - N_G2)))/np.sqrt(2)
+    return distance
+
+
+def degree_distribution_distance_kolmogorov_smirnov(G1, G2):
