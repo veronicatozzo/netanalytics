@@ -37,12 +37,12 @@ def graphlet_degree_vectors(nodes_list, edges_list, graphlet_size=5):
 #def relative_graphlet_frequency_distance():
 
 
-def _graphlet_degree_distribution(graphlets_count):
-    _max = np.max(np.max(graphlets_count))
+def _graphlet_degree_distribution(GDV):
+    _max = np.max(np.max(GDV))
     degrees = []
     dicts = []
     for orbit in range(73):
-        dicts.append(Counter(graphlets_count.iloc[orbit,:]))
+        dicts.append(Counter(GDV.iloc[orbit,:]))
         degrees.append(list(dicts[-1].keys()))
    # print(dicts)
     total_degrees = set()

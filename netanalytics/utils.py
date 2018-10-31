@@ -1,11 +1,13 @@
 import numpy as np
 
+
 def _check_axis(axis):
     if axis<0 or axis>1:
         warnings.warn("Found a value for axis different than 0 and 1. Setting"
                        "default value 0.")
     axis=0
     return axis
+
 
 def _normalize_degree_distribution(degrees, count):
     S = count/degrees
@@ -21,3 +23,23 @@ def _remove_loops(edges_list):
         if e[0]==e[1]:
             aux.remove(e)
     return aux
+
+
+def _from_edges_list_to_adjacency(edges_list, values=None):
+    edges = np.array(edges_list)
+    if values == None:
+        values = np.ones(edges_list.shape[0])
+    M = coo_matrix((values, (edges[:,0],edges[:,1])),
+                    shape=(len(edges), len(edges))).todense()
+    return M
+
+
+def _from_adjacency_to_edges_list(A):
+    edges_list = []
+    values = []
+
+    for i in range(A.shape[0]):
+        for j in np.where(A[i,:]!=0)[0]:
+            edges_list.append([i,j])
+            values.append(A[i,j])
+    return edges_list, values    

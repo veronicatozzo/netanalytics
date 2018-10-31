@@ -40,3 +40,8 @@ def plot_degree_distribution_histogram(degrees, ax=None, title="",
         plt.savefig(to_file, transparency=True, bbox_inches='tight', dpi=200)
 
     plt.show()
+
+
+def plot_GCM(M):
+    sns.clustermap(M)
+    plt.show()

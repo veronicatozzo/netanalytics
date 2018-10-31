@@ -23,6 +23,7 @@ if __name__ == "__main__":
         if not (graphlet_size == 4 or graphlet_size == 5):
             raise ValueError("The maximum graphlet size must be either 4 or 5.")
     print(filename)
-    _, nodes_list, edges_list = from_edge_list(filename, sep=' ', only_adjacency=False)
+    _, nodes_list, edges_list = from_edge_list(filename, sep=' ',
+											   only_adjacency=False)
     df = get_graphlet_orbits_count(nodes_list, edges_list, graphlet_size)
 	df.to_csv(filename.split(".")[0]+".csv")
