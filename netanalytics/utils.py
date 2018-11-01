@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 
 
@@ -10,11 +11,14 @@ def _check_axis(axis):
 
 
 def _normalize_degree_distribution(degrees, count):
-    S = count/degrees
-    S[np.where(degrees==0)[0]] = 0
-    T = np.sum(S)
-    N = S/T
-    return N
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        S = count/degrees
+        S[np.where(degrees==0)[0]] = count[np.where(degrees==0)[0]]
+        S[np.where(count==0)[0]] = 0
+        T = np.sum(S)
+        N = S/T
+        return N
 
 
 def _remove_loops(edges_list):
@@ -42,4 +46,4 @@ def _from_adjacency_to_edges_list(A):
         for j in np.where(A[i,:]!=0)[0]:
             edges_list.append([i,j])
             values.append(A[i,j])
-    return edges_list, values    
+    return edges_list, values

@@ -5,6 +5,14 @@ from collections import Counter
 
 from netanalytics.utils import _normalize_degree_distribution
 
+
+def laplacian_matrix(A):
+    A = A.copy()
+    A[np.where(A!=0)] = 1
+    D = np.diag(np.sum(A, axis=1))
+    return D - A
+
+
 def number_of_edges(A):
     """
     Parameters
@@ -55,7 +63,8 @@ def node_degree(A, pos, axis=0):
     if pos >= A.shape[axis]:
         raise ValueError("Position too big, given position %d, number of "
                          "nodes %d" %(pos, A.shape[axis]))
-    edges[pos] = 0
+    edges = np.reshape(edges, A.shape[0])
+    edges[0, pos] = 0
     return np.sum(edges), np.sum((edges!=0).astype(int))
 
 
@@ -103,4 +112,4 @@ def degree_distribition_distance(G1, G2):
     return distance
 
 
-def degree_distribution_distance_kolmogorov_smirnov(G1, G2):
+#def degree_distribution_distance_kolmogorov_smirnov(G1, G2):

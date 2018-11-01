@@ -21,7 +21,7 @@ def common_subgraph(A, B, nodes_list_A, nodes_list_B, directed=False):
         List of nodes identities for the network A.
     directed: boolean, optional defualt=False
         If the network has to be considered as directed or undirected. Relevant
-        only for the computation of the number of common edges. 
+        only for the computation of the number of common edges.
     Returns
     -------
     array-like:
@@ -37,7 +37,7 @@ def common_subgraph(A, B, nodes_list_A, nodes_list_B, directed=False):
     ix_a = [nodes_list_A.index(n) for n in common_nodes]
     ix_b = [nodes_list_B.index(n) for n in common_nodes]
     A_sub = A[ix_a, :]
-    A_sub = A[:, ix_a]
+    A_sub = A_sub[:, ix_a]
     B_sub = B[ix_b, :]
     B_sub = B_sub[:, ix_b]
     assert A_sub.shape == B_sub.shape
@@ -51,6 +51,17 @@ def common_subgraph(A, B, nodes_list_A, nodes_list_B, directed=False):
     common_sub = common[ix,:]
     common_sub = common_sub[:, ix]
     common_sub[np.where(common_sub==1)] = 0
-    common_sub /= 2
+    common_sub = common_sub / 2
     n_edges = np.sum(common_sub) if directed else np.sum(common_sub)/2
     return common_sub, nodes, n_edges
+
+
+def multi_common_subgraph(Gs, nodes_lists, directed=False):
+    common, nodes, _ = common_subgraph(Gs[0], Gs[1],
+                                       nodes_lists[0], nodes_lists[1],
+                                       directed)
+    for i in range(2, len(Gs)):
+        common, nodes, n_edges = common_subgraph(Gs[i], common,
+                                                 nodes_lists[i], nodes,
+                                                 directed)
+    return common, nodes, n_edges

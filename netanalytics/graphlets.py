@@ -53,7 +53,9 @@ def _graphlet_degree_distribution(GDV):
     for orbit in range(73):
         aux = np.array([dicts[orbit].get(d, 0) for d in total_degrees])
         Ns.append(_normalize_degree_distribution(total_degrees.astype(int), aux))
-    return pd.DataFrame(np.array(Ns).T, index=total_degrees)
+    res = pd.DataFrame(np.array(Ns).T, index=total_degrees)
+    res.sort_index(inplace=True)
+    return res
 
 
 def GDD(nodes_list, edges_list):
