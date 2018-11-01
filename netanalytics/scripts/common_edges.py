@@ -25,6 +25,7 @@ def count(path):
     return [n_edges_single, common, nodes, n_edges]
 
 
+#TODO: adjust with parameters inputing
 if __name__ == "__main__":
     path = "/cs/research/bioinf/bionet1/Coexpression_Study/BCStages-SubtypesNetworks/"
     folders = ['HER2Networks', 'LuminalANetworks', 'LuminalBNetworks', 'TripleNegativeNetworks',
