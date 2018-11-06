@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 
+from sklearn.cluster import SpectralClustering
+
 from netanalytics.degree import degree_distribution
 from netanalytics.clusters import graph_clustering_coefficient
 from netanalytics.graphlets import graphlet_degree_vectors
@@ -15,18 +17,19 @@ class Graph:
 
     """
     def __init__(self, nodes_list, adjacency=None, edges_list=None, values=None,
-                 directed=False, axis=0):
+                 directed=False,  axis=0):
         self.adjacency = adjacency
         self.nodes = nodes_list
         self.edges = edges_list
         self.values = values
         self.directed = directed
+        #self.graphlet_size = graphlet_size
         self.axis = axis
 
     def fit(self, graphlet_size=5):
         if not (graphlet_size == 4 or graphlet_size == 5):
             raise ValueError("The maximum graphlet size must be either 4 or 5.")
-
+        self.graphlet_sie = graphlet_size
         if self.adjacency is None and self.edges_list is None:
             raise ValueError("You must provide one between adjacency matrix or"
                               "edges list")
@@ -52,3 +55,9 @@ class Graph:
         self.GCM_73, self.GCM_11 = graphlet_correlation_matrix(self.GDV)
         self.is_fitted = True
         return self
+
+    def nodes_clusters(self):
+        SP = SpectralClustering(affinity='precomputed')
+        SP.fit(self.adjacency)
+        self.labels_ = SP.labels_
+        return self.labels_

@@ -64,4 +64,5 @@ def multi_common_subgraph(Gs, nodes_lists, directed=False):
         common, nodes, n_edges = common_subgraph(Gs[i], common,
                                                  nodes_lists[i], nodes,
                                                  directed)
+        print(n_edges)
     return common, nodes, n_edges

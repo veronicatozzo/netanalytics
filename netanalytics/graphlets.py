@@ -1,5 +1,6 @@
 import sys
 import os
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -41,7 +42,7 @@ def _graphlet_degree_distribution(GDV):
     _max = np.max(np.max(GDV))
     degrees = []
     dicts = []
-    for orbit in range(73):
+    for orbit in range(GDV.shape[1]):
         dicts.append(Counter(GDV.iloc[orbit,:]))
         degrees.append(list(dicts[-1].keys()))
    # print(dicts)
@@ -50,7 +51,7 @@ def _graphlet_degree_distribution(GDV):
         total_degrees = total_degrees.union(set(dg))
     total_degrees = np.array(sorted(list(total_degrees)))
     Ns = []
-    for orbit in range(73):
+    for orbit in range(GDV.shape[1]):
         aux = np.array([dicts[orbit].get(d, 0) for d in total_degrees])
         Ns.append(_normalize_degree_distribution(total_degrees.astype(int), aux))
     res = pd.DataFrame(np.array(Ns).T, index=total_degrees)
@@ -70,16 +71,20 @@ def GDD(nodes_list, edges_list):
 
 
 def _graphlet_distribution_distance(GDD_1, GDD_2):
-    if GDD_1.shape[1] != 73 or GDD_2.shape[1] != 73:
-        raise ValueError("The number of orbits must be 73, "
+    if GDD_1 is None or GDD_2 is None:
+        warnings.warn("Empty graphlet degree vector")
+        return np.nan
+    if (GDD_1.shape[1] != 73 and GDD_2.shape[1] != 73 and
+       GDD_1.shape[1] != 15 and GDD_2.shape[1] !=15):
+        raise ValueError("The number of orbits must be either 73 pr 15, "
                          "found %d for the first graph and %d for the second"
                          %(GDD_1.shape[1], GDD_2.shape[1]))
 
     indices = list(set(GDD_1.index.values).union(set(GDD_2.index.values)))
-    distance = np.zeros(73)
+    distance = np.zeros(GDD_1.shape[1])
     v1 = np.zeros(len(indices))
     v2 = v1.copy()
-    for orbit in range(73):
+    for orbit in range(GDD_1.shape[1]):
         for i, ix in enumerate(indices):
             try:
                 v1[i] = GDD_1.loc[ix].iloc[orbit]
@@ -113,18 +118,29 @@ def GDD_agreement(GDV1, GDV2):
 
 
 def graphlet_correlation_matrix(GDV):
-    GDV = GDV.values.astype(int)
-    GDV = np.vstack((GDV, np.ones((1,GDV.shape[1]))))
-    spearm_corr = spearmanr(GDV)
-    GCM_73 = spearm_corr[0]
-    to_consider = [0,1,2,4,5,6,7,8,9,10,11]
-    GCM_11 = GCM_73[to_consider, ]
-    GCM_11 = GCM_11[:,to_consider]
-    return GCM_73, GCM_11
+    if GDV.shape[1] == 73:
+        GDV = GDV.values.astype(int)
+        GDV = np.vstack((GDV, np.ones((1,GDV.shape[1]))))
+        spearm_corr = spearmanr(GDV)
+        GCM_73 = spearm_corr[0]
+        to_consider = [0,1,2,4,5,6,7,8,9,10,11]
+        GCM_11 = GCM_73[to_consider, ]
+        GCM_11 = GCM_11[:,to_consider]
+        return GCM_73, GCM_11
+    else:
+        GDV = GDV.values.astype(int)
+        GDV = np.vstack((GDV, np.ones((1,GDV.shape[1]))))
+        spearm_corr = spearmanr(GDV)
+        GCM_11 = spearm_corr[0]
+        return None, GCM_11
+
 
 
 def _graphlet_correlation_distance(GCM1, GCM2):
     _sum = 0
+    if GCM1 is None or GCM2 is None:
+        warnings.warn("Empty correlation matrix")
+        return 0
     if GCM1.shape != GCM2.shape:
         raise ValueError("bla bla bla")
     for i in range(GCM1.shape[0]):

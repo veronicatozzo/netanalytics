@@ -10,6 +10,7 @@ from netanalytics.degree import laplacian_matrix, degree_distribition_distance
 from netanalytics.graphlets import GDD_agreement, GCD
 from netanalytics.subnetworks import common_subgraph
 
+
 def spectral_distance(A, B):
     La = laplacian_matrix(A)
     Lb = laplacian_matrix(B)
@@ -28,6 +29,9 @@ def spectral_distance(A, B):
 
 
 def all_distances(G1, G2, verbose=0, label1=None, label2=None):
+    """
+    # TODO
+    """
     if label1 is None:
         label1 = '1'
     if label2 is None:
@@ -39,10 +43,10 @@ def all_distances(G1, G2, verbose=0, label1=None, label2=None):
         raise ValueError("The graphs must be instances of the class Graph")
 
     if not G1.is_fitted:
-        warning.warn("The graph analysis was not fit, doing now.")
+        warning.warn("The graph analysis was not fit, doing it now.")
         G1.fit()
     if not G2.is_fitted:
-        warning.warn("The graph analysis was not fit, doing now.")
+        warning.warn("The graph analysis was not fit, doing it now.")
         G2.fit()
 
     spectral = spectral_distance(G1.adjacency, G2.adjacency)

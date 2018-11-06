@@ -13,7 +13,7 @@ def laplacian_matrix(A):
     return D - A
 
 
-def number_of_edges(A):
+def number_of_edges(A, undirected=False):
     """
     Parameters
     ------
@@ -28,6 +28,8 @@ def number_of_edges(A):
     """
     aux = A.copy()
     aux -= np.diag(np.diag(aux))
+    if undirected:
+        return np.sum((aux!=0).astype(int))/2
     return np.sum((aux!=0).astype(int))
 
 
