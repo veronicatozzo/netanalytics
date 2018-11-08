@@ -38,10 +38,13 @@ def _from_edges_list_to_adjacency(edges_list, values=None):
     return M
 
 
-def _from_adjacency_to_edges_list(A):
+def _from_adjacency_to_edges_list(A, undirected=False):
     edges_list = []
     values = []
-
+    A = A.copy()
+    if undirected:
+        ix = np.triu_indices(A.shape[0])
+        A[ix] = 0
     for i in range(A.shape[0]):
         for j in np.where(A[i,:]!=0)[0]:
             edges_list.append([i,j])

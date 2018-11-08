@@ -132,6 +132,9 @@ def graphlet_correlation_matrix(GDV):
         GDV = np.vstack((GDV, np.ones((1,GDV.shape[1]))))
         spearm_corr = spearmanr(GDV)
         GCM_11 = spearm_corr[0]
+        to_consider = [0,1,2,4,5,6,7,8,9,10,11]
+        GCM_11 = GCM_11[to_consider, ]
+        GCM_11 = GCM_11[:,to_consider]
         return None, GCM_11
 
 
