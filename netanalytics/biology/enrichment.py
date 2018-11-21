@@ -364,7 +364,6 @@ class Enrichment():
         
         if self.compute_significance:
             if isinstance(self.mode, list):
-                print(res)
                 values = [_get_number_of_enriched_annotations(r) for r in self.enriched_annotations_list]
                 self.shuffled_annotations_enriched= []
                 self.p_value = []
