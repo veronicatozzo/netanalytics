@@ -9,7 +9,11 @@ from netanalytics.graph import Graph
 from netanalytics.degree import laplacian_matrix, degree_distribition_distance
 from netanalytics.graphlets import GDD_agreement, GCD
 from netanalytics.subnetworks import common_subgraph
+from netanalytics.utils import jaccard_index
 
+
+def jaccard_similarity(G1, G2):
+    return jaccard_index(G1.edges, G2.edges)
 
 def spectral_distance(A, B):
     La = laplacian_matrix(A)

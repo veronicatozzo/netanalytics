@@ -58,7 +58,7 @@ def get_genes_id(genes, from_='entrez_id', to_='hugo_symbol',
     to_ = check_type(to_)
     gene_mapping = pd.read_table(Path("HUGO_proteing_encoding_genes.txt"),
                                  sep='\t')
-
+            
     gene_mapping = gene_mapping.set_index(from_)
     gene_mapping = pd.DataFrame(gene_mapping[to_])
     results = []

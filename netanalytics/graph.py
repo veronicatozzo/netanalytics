@@ -17,7 +17,7 @@ class Graph:
 
     """
     def __init__(self, nodes_list, adjacency=None, edges_list=None, values=None,
-                 directed=False,  axis=0): # TODO: graph name also for graphlet degree vector computation 
+                 directed=False,  axis=0): # TODO: graph name also for graphlet degree vector computation
         self.adjacency = adjacency
         self.nodes = nodes_list
         self.edges = edges_list
