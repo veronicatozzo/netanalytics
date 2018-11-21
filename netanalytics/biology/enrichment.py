@@ -3,10 +3,13 @@ import math
 
 import pandas as pd
 import numpy as np
+import multiprocessing
+
 
 from scipy.stats import hypergeom
 from collections import defaultdict
-
+from joblib import Parallel, delayed
+from functools import partial
 
 # Benjamini-Hochberg p-value correction for multiple hypothesis testing
 def p_adjust_bh(p):
@@ -16,6 +19,33 @@ def p_adjust_bh(p):
     steps = float(len(p)) / np.arange(len(p), 0, -1)
     q = np.minimum(1, np.minimum.accumulate(steps * p[by_descend]))
     return q[by_orig]
+
+
+def _shuffle_annotations(annotations):
+    genes = np.unique(annotations.index.values)
+    indices = np.arange(0, genes.shape[0])
+    shuffled = indices.copy()
+    np.random.shuffle(shuffled)
+    new_annotations = pd.DataFrame(columns=['annotations'])
+    for i in range(indices.shape[0]):
+        annot = annotations.loc[genes[indices[i]]]
+        index = [genes[shuffled[i]] for j in range(annot.shape[0])]
+        if annot.shape[0] == 1:
+            data = [annot['annotations']]
+        else:
+            data = [[a] for a in np.array(annot['annotations'])]
+        df = pd.DataFrame(data, columns=['annotations'])
+        df.index = index
+        new_annotations = new_annotations.append(df)
+    return new_annotations
+
+
+def _get_number_of_enriched_annotations(clusters_annotations):
+    annots = []
+    for c in clusters_annotations:
+        for a in c:
+            annots.append(a[0])
+    return np.unique(annots).shape[0]
 
 
 def _perform_enrichment_bh(clusters, annotations, n_cores=1, verbose=0): #TODO implement parallel execution
@@ -192,6 +222,67 @@ def _get_database(genes, mode='go'):
     return annotations
 
 
+def enrichment_significance(clusters, annotations, n_reps = 100, compute_true=False, 
+                            no_enriched_ann=None, n_cores=1, verbose=0):
+    """
+    Params
+    ------
+    clusters: list, 
+        The list of clusters. Each cluster is a list of genes name/id.
+    annotations: pandas.DataFrame 
+        A dataframe with one columns called 'annotations' and as index the names/ids of the genes. 
+    n_reps: int, optional default=100
+        The number of times the procedure is repeated. 
+    compute_true: boolean, optional default=False
+        If True the function computes the enrichment without reshuffling. 
+        Note that if False the value of the enrichment (true_enrichment) must be passed. 
+    true_enrichment: float, optional default=None
+        It is the value of the enrichment obtained without reshuffling. 
+        If compute_true is False it must be passed. 
+    n_cores: int, optional default=1
+        The number of cores to perform the computation of random enrichment in parallel. 
+    verbose: boolean, optional default=0
+        If True during the computation some progress messages are printed.
+        If the process is done in parallel the progress is not shown. 
+    
+    Returns
+    -------
+    array-like, shape=(n_reps, )
+        The enrichment value obtained at each repetition
+    float:
+        P-value. The significance of the true enrichment against the reshuffling. 
+    """
+    if n_reps < 100:
+        warnings.warn("It is better to have a number of repetitions higher then 100.")
+    if compute_true:
+        enriched_ann, _, _, _ = _perform_enrichment_bh(clusters, annotations)
+        no_enriched_ann = _get_number_of_enriched_annotations(enriched_ann)
+    elif no_enriched_ann is None:
+        raise ValueError("You must indicate either to compute the true enrichment or "
+                         "provide the true value as input of the function")
+    
+    def _for_parallel(clusters, annotations):
+        annot = _shuffle_annotations(annotations)
+        enriched_ann, _, _, _ = _perform_enrichment_bh(clusters, annot)
+        return _get_number_of_enriched_annotations(enriched_ann)
+    _fp = partial(_for_parallel, clusters, annotations)
+    
+    if n_cores > 1:
+        numbers_annotations = Parallel(n_jobs=n_cores)(delayed(_fp)() for i in range(n_reps))
+    else:
+        numbers_annotations = np.zeros(n_reps)
+        progress = 1
+        for i in range(n_reps):
+            annot = _shuffle_annotations(annotations)
+            enriched_ann, _, _, _ = _perform_enrichment_bh(clusters, annot)
+            numbers_annotations[i] = _get_number_of_enriched_annotations(enriched_ann)
+            if verbose and i%(n_reps//10) == 0:
+                print('Done %d /100'%(progress*10))
+                progress +=1
+    pval = (np.sum(np.array(numbers_annotations) > no_enriched_ann) / n_reps)
+    return numbers_annotations, pval
+
+
 class Enrichment():
     """
     It performs enrichment on a list of genes using different databases.
@@ -212,11 +303,16 @@ class Enrichment():
         Number of cores to use to perform the computation.
     """
 
-    def __init__(self, genes, mode='go', correction='bh', n_cores=1):
+    def __init__(self, genes, mode='go', correction='bh', 
+                 compute_significance=True, n_repetitions=100,
+                 n_cores=1, verbose=0):
         self.genes = genes
         self.mode = mode
         self.correction = correction
+        self.compute_significance=True
+        self.n_repetitions=100
         self.n_cores = n_cores
+        self.verbose = verbose
 
     def fit(self, labels):
         """
@@ -247,18 +343,44 @@ class Enrichment():
         if isinstance(self.mode, list): #TODO if one mode is kegg/reactome fare ids mapping 
             self.percentage_enriched_genes_ = []
             self.percentage_enriched_clusters_ = []
-            self.other_results_ = []
+            self.mean_normalized_entropy = []
+            self.enriched_annotations_list = []
             for m in self.mode:
                 annotations = _get_database(self.genes, m)
                 res = _perform_enrichment(list_clusters, annotations, self.correction,
                                           self.n_cores)
+                self.enriched_annotations_list.append(res[0])
                 self.percentage_enriched_genes_.append(res[-2])
                 self.percentage_enriched_clusters_.append(res[-1])
-                self.other_results_.append(res[:-2])
+                self.mean_normalized_entropy.append(res[1])
         else:
             annotations = _get_database(self.genes, self.mode)
             res = _perform_enrichment(list_clusters, annotations, self.correction,
                                     self.n_cores)
+            self.enriched_annotations_list = res[0]
             self.percentage_enriched_genes_ = res[-2]
             self.percentage_enriched_clusters_ = res[-1]
-            self.other_results_ = res[:-2]
+            self.mean_normalized_entropy = res[1]
+        
+        if self.compute_significance:
+            if isinstance(self.mode, list):
+                print(res)
+                values = [_get_number_of_enriched_annotations(r) for r in self.enriched_annotations_list]
+                self.shuffled_annotations_enriched= []
+                self.p_value = []
+                for i, m in enumerate(self.mode):
+                    annotations = _get_database(self.genes, m)
+                    res_s = enrichment_significance(list_clusters, annotations,
+                                                  n_reps=self.n_repetitions,
+                                                  no_enriched_ann=values[i], 
+                                                  n_cores=self.n_cores,
+                                                   verbose=np.max(self.verbose-1, 0))
+                    self.shuffled_annotations_enriched.append(res_s[0])
+                    self.p_value.append(res_s[1])
+            else:
+                value = _get_number_of_enriched_annotations(self.enriched_annotations_list)
+                self.shuffled_annotations_enriched, self.p_value = \
+                    enrichment_significance(list_clusters, annotations,
+                                            n_reps=self.n_repetitions,
+                                            no_enriched_ann=value, n_cores=self.n_cores,
+                                            verbose=np.max(self.verbose-1, 0))
