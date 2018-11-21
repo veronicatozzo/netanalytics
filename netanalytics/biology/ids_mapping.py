@@ -1,3 +1,5 @@
+import os 
+
 import numpy as np
 import pandas as pd
 
@@ -56,9 +58,11 @@ def get_genes_id(genes, from_='entrez_id', to_='hugo_symbol',
 
     from_ = check_type(from_)
     to_ = check_type(to_)
-    gene_mapping = pd.read_table(Path("HUGO_proteing_encoding_genes.txt"),
+    path = os.path.realpath(__file__)
+    path = path.split('/')[:-1]  # if not unix/OX should raise exception 
+    path = '/'.join(path)
+    gene_mapping = pd.read_table(path+"/databases/HUGO_proteing_encoding_genes.txt",
                                  sep='\t')
-            
     gene_mapping = gene_mapping.set_index(from_)
     gene_mapping = pd.DataFrame(gene_mapping[to_])
     results = []

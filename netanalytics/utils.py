@@ -9,7 +9,7 @@ def jaccard_index(A, B):
     union = A.union(B)
     return len(list(intr))/len(list(union))
 
-    
+
 def _check_axis(axis):
     if axis<0 or axis>1:
         warnings.warn("Found a value for axis different than 0 and 1. Setting"
