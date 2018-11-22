@@ -1,15 +1,24 @@
 import os
 import math
+import warnings 
+import multiprocessing
+import matplotlib
 
 import pandas as pd
 import numpy as np
-import multiprocessing
-
+import pickle as pkl
+import matplotlib.pyplot as plt 
 
 from scipy.stats import hypergeom
 from collections import defaultdict
 from joblib import Parallel, delayed
 from functools import partial
+
+from nmtf.nmtf import SSNMTF
+from nmtf.utils import get_clusters
+
+from netanalytics.biology.plot import plot_enrichment_results
+
 
 # Benjamini-Hochberg p-value correction for multiple hypothesis testing
 def p_adjust_bh(p):
@@ -98,31 +107,33 @@ def _perform_enrichment_bh(clusters, annotations, n_cores=1, verbose=0): #TODO i
         NE_list.append(nec)
         if verbose:
             print("Finished mean normalized entropy cluster "+str(i))
-
-    # applying BH correction
-    BHpvals = p_adjust_bh(pvals)
-    BHcts = 0
-    BH_enrichment = [[] for j in range(len(clusters))]
-    enriched_genes = []
-    for i in np.where(BHpvals<0.05)[0]:
-        BHcts += 1
-        BH_enrichment[cls[i]].append([gos[i], BHpvals[i]])
-    for i, c in enumerate(clusters):
-        cluster_set = set()
-        enriched_gos = np.array(BH_enrichment[i])
-        if enriched_gos.size == 0:
-            enriched_genes.append([])
-            continue
-        genes_at_least_one = list(set(annotations.index).intersection(
-                                  set(list(c.ravel()))))
-        ann_c = annotations.loc[genes_at_least_one]
-        gos = enriched_gos[:,0]
-        for g in gos:
-           # print(ann_c[ann_c['annotations']==g].index.values)
-            cluster_set = cluster_set.union(set(list(ann_c[ann_c['annotations']==g].index.values)))
-        enriched_genes.append(list(cluster_set))
-        if verbose:
-            print("Finished BH correction cluster "+str(i))
+    
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        # applying BH correction
+        BHpvals = p_adjust_bh(pvals)
+        BHcts = 0
+        BH_enrichment = [[] for j in range(len(clusters))]
+        enriched_genes = []
+        for i in np.where(BHpvals<0.05)[0]:
+            BHcts += 1
+            BH_enrichment[cls[i]].append([gos[i], BHpvals[i]])
+        for i, c in enumerate(clusters):
+            cluster_set = set()
+            enriched_gos = np.array(BH_enrichment[i])
+            if enriched_gos.size == 0:
+                enriched_genes.append([])
+                continue
+            genes_at_least_one = list(set(annotations.index).intersection(
+                                      set(list(c.ravel()))))
+            ann_c = annotations.loc[genes_at_least_one]
+            gos = enriched_gos[:,0]
+            for g in gos:
+               # print(ann_c[ann_c['annotations']==g].index.values)
+                cluster_set = cluster_set.union(set(list(ann_c[ann_c['annotations']==g].index.values)))
+            enriched_genes.append(list(cluster_set))
+            if verbose:
+                print("Finished BH correction cluster "+str(i))
 
     MNE = sum(NE_list) / float(len(NE_list)) if sum(NE_list) != 0 else 0
     enr_cluster = 0
@@ -178,47 +189,80 @@ def _get_database(genes, mode='go'):
     path = os.path.realpath(__file__)
     path = path.split('/')[:-1]  # if not unix/OX should raise exception
     path = '/'.join(path)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        if mode.lower()=='go_bp' or mode.lower() =='go_mf' or mode.lower()== 'go_cc':
+            go = pd.read_table(path+"/databases/GO_most_specific.gaf", 
+                  skiprows=30, header=None)
+            go = go.set_index(2)
+            go = go[(go[6] == 'EXP') | (go[6] == 'IDA') | 
+                    (go[6] == 'IPI') | (go[6] == 'IMP')]
+            if mode.lower()=='go_bp':
+                go = go[go[8]=='P']
+            elif mode.lower()=='go_mf':
+                go = go[go[8]=='F']
+            else:
+                go = go[go[8]=='C']
+            go.index = [str(s).lower() for s in go.index]
+            annotations = go[4].to_frame()
+            annotations.columns= [1]
+        elif mode.lower() == 'kegg_symbol':
+            annotations = pd.read_csv(path+"/databases/kegg_pathways.csv", 
+                                      index_col=0)
+            annotations.index = [i.lower() for i in annotations.index]
+        elif mode.lower() == 'kegg_entrez':
+            annotations = pd.read_csv(path+"/databases/kegg_entrez_pathways.csv", 
+                                      index_col=0)
+        elif mode.lower() == 'reactome_symbol':
+            annotations = pd.read_csv(path+"/databases/reactome_pathways.csv", 
+                                      index_col=0)
+            annotations.index = [i.lower() for i in annotations.index]
+        elif mode.lower() == 'reactome_entrez':
+            annotations = pd.read_csv(path+"/databases/reactome_entrez_pathways.csv", 
+                                      index_col=0)
+        elif mode.lower()=='go':
+            annotations = pd.read_table(path+"/databases/HSA_GO-BP.LST",
+                                        index_col=0, header=None)
+        elif mode.lower()=='kegg':
+            annotations = pd.read_table(path+"/databases/HSA_Kegg_Pathways.lst",
+                                        index_col=0, header=None)
+        elif mode.lower()=='reactome':
+            annotations = pd.read_table(path+"/databases/HSA_Reactome_Pathways.lst",
+                                        sep='\t', skiprows=30, header=None)
+        elif mode.lower()=='human_bp':
+            annotations = pd.read_table(path+"/databases/Human_BP.lst", sep=';',
+                                        header=None,index_col=0)
+            annotations.index = [i.lower() for i in annotations.index]
+        elif mode.lower()=='human_rr':
+            annotations = pd.read_table(path+"/databases/Human_RR.lst", sep=';',
+                                        header=None,index_col=0)
+            annotations.index = [i.lower() for i in annotations.index]
+        elif mode.lower()=='human_rp':
+            annotations = pd.read_table(path+"/databases/Human_RP.lst", sep=';',
+                                        header=None,index_col=0)
+            annotations.index = [i.lower() for i in annotations.index]
+        else:
+             raise ValueError("The mode you specified is not implemented, please "
+                              "try one among go, kegg, reactome, human_bp, "
+                              "human_rr, human_rp")
 
-    if mode.lower()=='go':
-        annotations = pd.read_table(path+"/databases/HSA_GO-BP.LST",
-                                    index_col=0, header=None)
-    elif mode.lower()=='kegg':
-        annotations = pd.read_table(path+"/databases/HSA_Kegg_Pathways.lst",
-                                    index_col=0, header=None)
-    elif mode.lower()=='reactome':
-        annotations = pd.read_table(path+"/databases/HSA_Reactome_Pathways.lst",
-                                    sep='\t', skiprows=30, header=None)
-    elif mode.lower()=='human_bp':
-        annotations = pd.read_table(path+"/databases/Human_BP.lst", sep=';',
-                                    header=None,index_col=0)
-        annotations.index = [i.lower() for i in annotations.index]
-    elif mode.lower()=='human_rr':
-        annotations = pd.read_table(path+"/databases/Human_RR.lst", sep=';',
-                                    header=None,index_col=0)
-        annotations.index = [i.lower() for i in annotations.index]
-    elif mode.lower()=='human_rp':
-        annotations = pd.read_table(path+"/databases/Human_RP.lst", sep=';',
-                                    header=None,index_col=0)
-        annotations.index = [i.lower() for i in annotations.index]
-    else:
-         raise ValueError("The mode you specified is not implemented, please "
-                          "try one among go, kegg, reactome, human_bp, "
-                          "human_rr, human_rp")
-    intersection = list(set(genes).intersection(set(annotations.index)))
-    annotations = annotations.loc[intersection]
-    to_keep = []
-    for i, g in enumerate(annotations[1]):
-        if annotations[annotations[1]==g].shape[0] != 1:
-            to_keep.append(i)
-    annotations = annotations.iloc[to_keep,:]
-    to_drop=[]
-    for g in annotations.index.values:
-        if annotations.loc[g].shape[0] == 0:
-            print(g)
-            to_drop.append(g)
-    annotations.drop(to_drop, inplace=True)
-    annotations  = pd.DataFrame(annotations[1])
-    annotations.columns = ['annotations']
+        intersection = list(set(genes).intersection(set(annotations.index)))
+        annotations = annotations.loc[intersection]
+        to_keep = []
+
+        index = 1 if not(mode.lower() =='kegg_symbol' or mode.lower() =='reactome_symbol'or
+                         mode.lower() =='kegg_entrez' or mode.lower() =='reactome_entrez') else '1'
+        for i, g in enumerate(annotations[index]):
+            if annotations[annotations[index]==g].shape[0] != 1:
+                to_keep.append(i)
+        annotations = annotations.iloc[to_keep,:]
+        to_drop=[]
+        for g in annotations.index.values:
+            if annotations.loc[g].shape[0] == 0:
+                to_drop.append(g)
+        annotations.drop(to_drop, inplace=True)
+        annotations  = pd.DataFrame(annotations[index])
+        annotations.columns = ['annotations']
     return annotations
 
 
@@ -279,9 +323,68 @@ def enrichment_significance(clusters, annotations, n_reps = 100, compute_true=Fa
             if verbose and i%(n_reps//10) == 0:
                 print('Done %d /100'%(progress*10))
                 progress +=1
-    pval = (np.sum(np.array(numbers_annotations) > no_enriched_ann) / n_reps)
+    pval = (np.sum(np.array(numbers_annotations) >= no_enriched_ann) / n_reps)
     return numbers_annotations, pval
 
+
+def enrichment_analysis_multiple_graphs(graphs, k, genes, results_folder, networks_type, 
+                                        _type, 
+                                        labels_plot=['GO-BP', 'GO-MF', 'GO-CC', 'KP', 'RP'],
+                                        normalize=True,
+                                        specific_file_description="",
+                                        enrichment_types=['go_bp', 'go_mf', 'go_cc', 
+                                                         'kegg_symbol', 'reactome_symbol'],
+                                        compute_significance=True, n_cores=1):
+    if normalize:
+        graphs = graphs.copy()
+        graphs= [(g - np.mean(g))/np.std(g) for g in graphs]
+    
+    def _parallel_SSNMTF(g, i, k, max_iter):
+        est = SSNMTF(k=k, max_iter=max_iter)
+        est.fit([g])
+        return i, est
+    pps = partial(_parallel_SSNMTF, k=k, max_iter=1000)
+    results = Parallel(n_jobs=n_cores)(delayed(pps)(g, i) for i, g in enumerate(graphs))
+          
+    ests = [None]*len(graphs)
+    for r in results:
+        ests[r[0]] = r[1]
+
+    esti = SSNMTF(k=k, max_iter=1000)
+    esti.fit(graphs)
+    ests.append(esti)
+    
+    enr = Enrichment(genes, mode=enrichment_types,
+                     compute_significance=compute_significance, n_cores=n_cores)
+    enr_genes = []
+    enr_clusters = []
+    if compute_significance:
+        significances = []
+    
+    for est in ests:
+        labels = get_clusters(est.G_)
+        enr.fit(labels)
+        enr_genes.append(enr.percentage_enriched_genes_)
+        enr_clusters.append(enr.percentage_enriched_clusters_)
+        if compute_significance:
+            significances.append(enr.p_value)
+    
+    with open(results_folder+"/genes_enriched_"+specific_file_description+".pkl", 'wb') as f:
+        pkl.dump(enr_genes, f)
+    with open(results_folder+"/clusters_enriched_"+specific_file_description+".pkl", 'wb') as f:
+        pkl.dump(enr_clusters, f)
+    if compute_significance:
+        with open(results_folder+"/enrichment_p_value_"+specific_file_description+".pkl", 'wb') as f:
+            pkl.dump(significances, f)
+        
+    matplotlib.rcParams.update({'font.size': 22})
+   
+    networks_type += ['integrated']
+    plot_enrichment_results(enr_genes, results_folder+"/enriched_genes_"+specific_file_description+".pdf",
+                            networks_type, labels_plot, "% Enriched genes", _type+' Networks')
+    plot_enrichment_results(enr_clusters, results_folder+"/enriched_clusters_"+specific_file_description+".pdf",
+                            networks_type, labels_plot, "% Enriched clusters", _type+' Networks')
+    
 
 class Enrichment():
     """
@@ -309,8 +412,8 @@ class Enrichment():
         self.genes = genes
         self.mode = mode
         self.correction = correction
-        self.compute_significance=True
-        self.n_repetitions=100
+        self.compute_significance=compute_significance
+        self.n_repetitions=n_repetitions
         self.n_cores = n_cores
         self.verbose = verbose
 
@@ -333,7 +436,7 @@ class Enrichment():
             self.genes = [g.lower() for g in self.genes]
         else:
             self.genes = np.array(self.genes).astype(int)
-
+        
         list_clusters = []
         for c in np.unique(labels):
             indices_c = np.argwhere(labels==c)
@@ -345,14 +448,25 @@ class Enrichment():
             self.percentage_enriched_clusters_ = []
             self.mean_normalized_entropy = []
             self.enriched_annotations_list = []
-            for m in self.mode:
-                annotations = _get_database(self.genes, m)
+            def _parallel_enrichment(mode, genes=None, clusters=None, correction=None,
+                                     n_cores=1):
+                annotations = _get_database(self.genes, mode)
                 res = _perform_enrichment(list_clusters, annotations, self.correction,
                                           self.n_cores)
-                self.enriched_annotations_list.append(res[0])
-                self.percentage_enriched_genes_.append(res[-2])
-                self.percentage_enriched_clusters_.append(res[-1])
-                self.mean_normalized_entropy.append(res[1])
+                return mode, res
+            
+            ppe = partial(_parallel_enrichment, genes=self.genes, clusters=list_clusters, 
+                          correction=self.correction, n_cores=self.n_cores)
+            results = Parallel(n_jobs=self.n_cores)(delayed(ppe)(m) for m in self.mode)  
+            
+            for m in self.mode:
+                for mode, res in results:
+                    if mode==m:
+                        self.enriched_annotations_list.append(res[0])
+                        self.percentage_enriched_genes_.append(res[-2])
+                        self.percentage_enriched_clusters_.append(res[-1])
+                        self.mean_normalized_entropy.append(res[1])
+                        break
         else:
             annotations = _get_database(self.genes, self.mode)
             res = _perform_enrichment(list_clusters, annotations, self.correction,
@@ -364,7 +478,6 @@ class Enrichment():
         
         if self.compute_significance:
             if isinstance(self.mode, list):
-                print(res)
                 values = [_get_number_of_enriched_annotations(r) for r in self.enriched_annotations_list]
                 self.shuffled_annotations_enriched= []
                 self.p_value = []
