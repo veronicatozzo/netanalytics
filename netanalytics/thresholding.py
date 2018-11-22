@@ -51,13 +51,12 @@ def thresholding(X, mode='5', min_v=0.01, max_v=0.09, make_plot=False,
     """
 
     X = check_array(X)
-    n = X.shape[0]
+    n, s = X.shape
     X_new = X.copy()
     mode = str(mode).lower()
 
     if mode == '1' or mode == '5':
         how_many = int(round(int(mode)*n/100))
-        print(how_many)
         indices = np.argsort(X, axis=1)
         to_discard = indices[:, 0:n-how_many]
         for r in range(X.shape[0]):

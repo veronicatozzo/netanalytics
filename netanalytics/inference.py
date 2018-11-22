@@ -17,7 +17,7 @@ def mutual_rank_graph(X, threshold='1'):
     X: array-like, shape=(n, d)
         The input data matrix with n samples and d variables.
     threshold: string, optional default='1'
-        The type of threshold to use for eliminate the weak connections. 
+        The type of threshold to use for eliminate the weak connections.
     Returns
     -------
     array-like:
@@ -35,4 +35,4 @@ def mutual_rank_graph(X, threshold='1'):
     mr = (mr_r + mr_c)/2
     mr /= np.max(mr)
     res = thresholding(mr, mode='1')
-    return res
+    return res + res.T - np.diag(np.diag(res))

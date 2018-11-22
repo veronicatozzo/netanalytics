@@ -6,6 +6,12 @@ from scipy.sparse import coo_matrix
 
 from netanalytics.utils import _check_axis
 
+
+def get_adjacency_csv(file):
+    data = pd.read_csv(file, index_col=0)
+    return data.values
+
+    
 def _params_check(G, filename, labels, axis):
     n1, n2 = G.shape
     if n1 != n2:
